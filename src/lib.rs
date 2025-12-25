@@ -158,4 +158,11 @@ impl BrioSmartTech {
         ])
         .await
     }
+
+    pub async fn set_sound_theme(
+        &self,
+        effect: u8,
+    ) -> Result<(), Box<dyn Error>> {
+        self.write_command(vec![0x03, 0x56, 0xAA, effect]).await
+    }
 }
