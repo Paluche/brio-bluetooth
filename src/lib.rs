@@ -53,6 +53,40 @@ impl Color {
     }
 }
 
+#[derive(Debug, Clone, Copy, EnumIter)]
+pub enum SoundTheme {
+    Honk,
+    Whistle,
+    Horn,
+    Spaceship,
+}
+
+impl SoundTheme {
+    pub fn get_command_value(&self) -> u8 {
+        0xf0 + match self {
+            Self::Honk => 0,
+            Self::Whistle => 1,
+            Self::Horn => 2,
+            Self::Spaceship => 3,
+        }
+    }
+
+    // offsets:
+    // - eff1 0x15
+    // - eff2 0x1d
+    // - eff3 0x11
+    // - eff4 0x19
+    pub fn from_u8(value: u8, offset: u8) -> Option<Self> {
+        match value - offset {
+            0 => Some(Self::Honk),
+            1 => Some(Self::Whistle),
+            2 => Some(Self::Honk),
+            3 => Some(Self::Spaceship),
+            _ => None,
+        }
+    }
+}
+
 pub struct BrioSmartTech {
     peripheral: Peripheral,
     cmd_char: Characteristic,
@@ -216,6 +250,14 @@ impl BrioSmartTech {
     ) -> Result<(), Box<dyn Error>> {
         assert!(intensity <= 16);
         self.write_command(vec![0x02, color.get_command_value(intensity)])
+            .await
+    }
+
+    pub async fn set_sound_theme(
+        &self,
+        sound_theme: SoundTheme,
+    ) -> Result<(), Box<dyn Error>> {
+        self.write_command(vec![0x56, 0xaa, sound_theme.get_command_value()])
             .await
     }
 }
