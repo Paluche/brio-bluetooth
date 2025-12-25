@@ -2,6 +2,42 @@ use std::error::Error;
 use uuid::Uuid;
 use tokio::time::{sleep, Duration};
 use btleplug::{api::{Central, Characteristic, Peripheral as _, ScanFilter, WriteType}, platform::{Adapter, Peripheral}};
+use strum::EnumIter;
+
+#[derive(Debug, Clone, Copy, EnumIter)]
+pub enum Color {
+    Off,
+    Yellow,
+    Orange,
+    Red,
+    Pink,
+    Purple,
+    Blue,
+    LightBlue,
+    Cyan,
+    Green,
+    White,
+    RedBackward,
+}
+
+impl Color {
+    fn get_command_value(&self, intensity:u8) -> u8 {
+        (match self {
+            Self::Off => 0,
+            Self::Yellow => 1,
+            Self::Orange => 2,
+            Self::Red => 3,
+            Self::Pink => 4,
+            Self::Purple => 5,
+            Self::Blue => 6,
+            Self::LightBlue => 7,
+            Self::Cyan => 8,
+            Self::Green => 9,
+            Self::White => 10,
+            Self::RedBackward => 11,
+        } as u8) * 16 + intensity
+    }
+}
 
 pub struct BrioSmartTech {
     device: Peripheral,
@@ -43,7 +79,7 @@ impl BrioSmartTech {
         let mut device  = None;
 
         while start.elapsed() < timeout {
-            if let Some(d) = find_device(&central).await {
+            if let Some(d) = find_device(central).await {
                 device = Some(d);
                 break;
             }
@@ -97,7 +133,8 @@ impl BrioSmartTech {
         self.set_speed(0).await
     }
 
-    pub async fn set_color(&self, value:u8) -> Result<(), Box<dyn Error>> {
-        self.write_command(vec![0x02, 0x02, value]).await
+    pub async fn set_color(&self, color: Color, intensity:u8) -> Result<(), Box<dyn Error>> {
+        assert!(intensity <= 16);
+        self.write_command(vec![0x02, 0x02, color.get_command_value(intensity)]).await
     }
 }

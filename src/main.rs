@@ -2,7 +2,8 @@ use std::error::Error;
 
 use btleplug::{ api::Manager as _, platform:: Manager};
 use tokio::time::{sleep, Duration};
-use brio_bluetooth::BrioSmartTech;
+use brio_bluetooth::{BrioSmartTech, Color};
+use strum::IntoEnumIterator;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -16,25 +17,24 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let train = BrioSmartTech::new(central).await?.expect("device not found");
 
     println!("Sending different colors");
-    for c in 1..255 {
-        train.set_color(c).await?;
-        sleep(Duration::from_millis(70)).await;
+    for c in Color::iter() {
+        println!("Color {c:?}");
+        for i in 0..16 {
+            train.set_color(c, i).await?;
+            sleep(Duration::from_millis(100)).await;
+        }
     }
 
-    train.set_color(0).await?;
+    train.set_color(Color::White, 15).await?;
     sleep(Duration::from_millis(300)).await;
 
     println!("Forward");
-    for i in 1..8 {
-        train.forward(i).await?;
-        sleep(Duration::from_secs(1)).await;
-    }
+    train.forward(7).await?;
+    sleep(Duration::from_secs(10)).await;
 
     println!("Backward");
-    for i in 1..8 {
-        train.backward(i).await?;
-        sleep(Duration::from_secs(1)).await;
-    }
+    train.backward(7).await?;
+    sleep(Duration::from_secs(1)).await;
 
     println!("Stop");
     train.stop().await?;
