@@ -1,8 +1,11 @@
+use btleplug::{
+    api::{Central, Characteristic, Peripheral as _, ScanFilter, WriteType},
+    platform::{Adapter, Peripheral},
+};
 use std::error::Error;
-use uuid::Uuid;
-use tokio::time::{sleep, Duration};
-use btleplug::{api::{Central, Characteristic, Peripheral as _, ScanFilter, WriteType}, platform::{Adapter, Peripheral}};
 use strum::EnumIter;
+use tokio::time::{Duration, sleep};
+use uuid::Uuid;
 
 #[derive(Debug, Clone, Copy, EnumIter)]
 pub enum Color {
@@ -21,7 +24,7 @@ pub enum Color {
 }
 
 impl Color {
-    fn get_command_value(&self, intensity:u8) -> u8 {
+    fn get_command_value(&self, intensity: u8) -> u8 {
         (match self {
             Self::Off => 0,
             Self::Yellow => 1,
@@ -35,7 +38,9 @@ impl Color {
             Self::Green => 9,
             Self::White => 10,
             Self::RedBackward => 11,
-        } as u8) * 16 + intensity
+        } as u8)
+            * 16
+            + intensity
     }
 }
 
@@ -61,11 +66,12 @@ async fn find_device(central: &Adapter) -> Option<Peripheral> {
 }
 
 impl BrioSmartTech {
-    pub async fn new(central: &Adapter) -> Result<Option<Self>, Box<dyn Error>> {
+    pub async fn new(
+        central: &Adapter,
+    ) -> Result<Option<Self>, Box<dyn Error>> {
         // service and characteristic have the same uuid for the brio smart 2.0
-        let service_id = Uuid::parse_str(
-            "B11B0002-BF9B-4A20-BA07-9218FEC577D7"
-        ).unwrap();
+        let service_id =
+            Uuid::parse_str("B11B0002-BF9B-4A20-BA07-9218FEC577D7").unwrap();
 
         //println!("Scanning for devices with service ID: {service_id}");
         central.start_scan(ScanFilter::default()).await.unwrap();
@@ -76,7 +82,7 @@ impl BrioSmartTech {
         let timeout = Duration::from_secs(30);
         let start = std::time::Instant::now();
 
-        let mut device  = None;
+        let mut device = None;
 
         while start.elapsed() < timeout {
             if let Some(d) = find_device(central).await {
@@ -87,31 +93,33 @@ impl BrioSmartTech {
         }
 
         if device.is_none() {
-            return Ok(None)
+            return Ok(None);
         }
         let device = device.unwrap();
         device.connect().await?;
         device.discover_services().await?;
 
-        let cmd_char = device.characteristics().iter().
-            find(|c| c.uuid == service_id).expect("Could not find command characteristic").to_owned();
+        let cmd_char = device
+            .characteristics()
+            .iter()
+            .find(|c| c.uuid == service_id)
+            .expect("Could not find command characteristic")
+            .to_owned();
 
-        Ok(Some(Self{
-            device,
-            cmd_char,
-        }))
+        Ok(Some(Self { device, cmd_char }))
     }
 
-    async fn write_command(&self, mut data: Vec<u8>) -> Result<(), Box<dyn Error>> {
+    async fn write_command(
+        &self,
+        mut data: Vec<u8>,
+    ) -> Result<(), Box<dyn Error>> {
         let sum: u16 = data.iter().map(|x| u16::from(*x)).sum();
         data.insert(0, 0xAA);
         data.push(((0x100 - (sum & 0xFF)) & 0xFF) as u8);
 
-        self.device.write(
-            &self.cmd_char,
-            &data,
-            WriteType::WithoutResponse
-        ).await?;
+        self.device
+            .write(&self.cmd_char, &data, WriteType::WithoutResponse)
+            .await?;
         Ok(())
     }
 
@@ -133,8 +141,17 @@ impl BrioSmartTech {
         self.set_speed(0).await
     }
 
-    pub async fn set_color(&self, color: Color, intensity:u8) -> Result<(), Box<dyn Error>> {
+    pub async fn set_color(
+        &self,
+        color: Color,
+        intensity: u8,
+    ) -> Result<(), Box<dyn Error>> {
         assert!(intensity <= 16);
-        self.write_command(vec![0x02, 0x02, color.get_command_value(intensity)]).await
+        self.write_command(vec![
+            0x02,
+            0x02,
+            color.get_command_value(intensity),
+        ])
+        .await
     }
 }

@@ -1,9 +1,9 @@
 use std::error::Error;
 
-use btleplug::{ api::Manager as _, platform:: Manager};
-use tokio::time::{sleep, Duration};
 use brio_bluetooth::{BrioSmartTech, Color};
+use btleplug::{api::Manager as _, platform::Manager};
 use strum::IntoEnumIterator;
+use tokio::time::{Duration, sleep};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -11,10 +11,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let manager = Manager::new().await.unwrap();
     // Get the first bluetooth adapter
     let adapters = manager.adapters().await.unwrap();
-    let central= adapters.first().unwrap();
+    let central = adapters.first().unwrap();
 
     println!("Searching for train");
-    let train = BrioSmartTech::new(central).await?.expect("device not found");
+    let train = BrioSmartTech::new(central)
+        .await?
+        .expect("device not found");
 
     println!("Sending different colors");
     for c in Color::iter() {
