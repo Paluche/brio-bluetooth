@@ -106,6 +106,8 @@ impl BrioSmartTech {
             .expect("Could not find command characteristic")
             .to_owned();
 
+        // TODO Subscribe to notifications.
+
         Ok(Some(Self { device, cmd_char }))
     }
 
