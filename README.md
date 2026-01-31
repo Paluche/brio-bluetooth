@@ -1,22 +1,25 @@
-# brio bluetooth
+# brio-smart-tech
 
-In this project the focus is not on the complete reverse engineering of the brio protocol, I just wanted to learn how to reverse engineer bluetooth protocols in general.
+## Acknowledgment
 
-Some [BRIO](https://www.brio.de/de-DE/produkte/eisenbahn/smart-tech-sound) products allow the connection via bluetooth and the controll of their toys via iOS app.
-The current implementation will just change the colors for the headlights of [this train](https://www.brio.de/de-DE/produkte/eisenbahn/smart-tech-sound/smart-tech-soundlok-m-aufnahmef-63397100).
+This project started as a fork of
+[andiikaa/brio-bluetooth](https://github.com/andiikaa/brio-bluetooth) and has
+now evolved to a crate that provides a class to iteract with Brio SmartTech
+child toy locomotive, over Bluetooth Low Energy.
 
-## spec
+The initial focus of the project was to experiment reverse engineering a
+Bluetooth Low Energy protocol. The communication with the locomotive being
+non-secured (this is not a critical application), it is a good choice for such
+purpose.
 
-A nice overview about the spec can be found [in this project](https://github.com/cpetrich/Smart-Tech-Sound-BLE)
+Some [BRIO](https://www.brio.de/de-DE/produkte/eisenbahn/smart-tech-sound)
+products allow the connection via bluetooth and the control of their toys via
+iOS app.
 
-## run
+A nice overview about the protocol specification can be found in
+[cpetrich/Smart-Tech-Sound-BLE](https://github.com/cpetrich/Smart-Tech-Sound-BLE)
 
-```bash
-$ cargo run
-```
+## Example
 
-## reverse engineer bluetooth
-
-To get the required data out of the bluetooth connection between toy and iOS app, i mainly followed these steps:
-
-https://www.bluetooth.com/blog/a-new-way-to-debug-iosbluetooth-applications/
+You can have access to some example code, which was used for testing in the
+`example` folder.

@@ -58,7 +58,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "brio-bluetooth"
+name = "brio-smart-tech"
 version = "0.1.0"
 dependencies = [
  "btleplug",
@@ -216,7 +216,7 @@ dependencies = [
 name = "example"
 version = "0.1.0"
 dependencies = [
- "brio-bluetooth",
+ "brio-smart-tech",
  "btleplug",
  "dbus",
  "strum",
