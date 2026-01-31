@@ -1,0 +1,11 @@
+[package]
+name = "example"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+brio-bluetooth = { path = "../" }
+btleplug = "0.11.8"
+dbus = { version = "0.9.7", features = ["vendored"] }
+strum = "0.27.2"
+tokio = "1.49.0"
