@@ -1,11 +1,19 @@
-use std::error::Error;
+use std::{error::Error, sync::Arc};
 
 use btleplug::{
-    api::{Central, Characteristic, Peripheral as _, ScanFilter, WriteType},
+    api::{
+        Central, CharPropFlags, Characteristic, Peripheral as _, ScanFilter,
+        WriteType,
+    },
     platform::{Adapter, Peripheral},
 };
+use futures::stream::StreamExt;
 use strum::EnumIter;
-use tokio::time::{Duration, sleep};
+use tokio::{
+    sync::Mutex,
+    task,
+    time::{Duration, sleep},
+};
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Copy, EnumIter)]
@@ -46,11 +54,11 @@ impl Color {
 }
 
 pub struct BrioSmartTech {
-    device: Peripheral,
+    peripheral: Peripheral,
     cmd_char: Characteristic,
 }
 
-async fn find_device(central: &Adapter) -> Option<Peripheral> {
+async fn find_peripheral(central: &Adapter) -> Option<Peripheral> {
     for p in central.peripherals().await.unwrap() {
         if p.properties()
             .await
@@ -66,52 +74,104 @@ async fn find_device(central: &Adapter) -> Option<Peripheral> {
     None
 }
 
+fn compute_checksum(payload: &[u8]) -> u8 {
+    let sum: u16 = (payload.len() as u16)
+        + payload.iter().map(|x| u16::from(*x)).sum::<u16>();
+    ((0x100 - (sum & 0xFF)) & 0xFF) as u8
+}
+
+async fn notification_watcher(brio_smart_tech: Arc<Mutex<BrioSmartTech>>) {
+    // Print the first 4 notifications received.
+    let mut notification_stream = brio_smart_tech
+        .lock()
+        .await
+        .peripheral
+        .notifications()
+        .await
+        .unwrap();
+    // Process while the BLE connection is not broken or stopped.
+    while let Some(data) = notification_stream.next().await {
+        let mut bytes = data.value.iter();
+
+        assert_eq!(*bytes.next().unwrap(), 0xaa);
+        let len = *bytes.next().unwrap() as usize;
+        let payload: Vec<u8> = bytes.by_ref().take(len).copied().collect();
+        let checksum = *bytes.next().unwrap();
+
+        assert_eq!(checksum, compute_checksum(&payload));
+        assert_eq!(bytes.next(), None);
+
+        println!("Data notified {payload:?}");
+    }
+}
+
 impl BrioSmartTech {
+    /// Instantiate the communication with a Brio Smart Tech device.
     pub async fn new(
         central: &Adapter,
-    ) -> Result<Option<Self>, Box<dyn Error>> {
+    ) -> Result<Arc<Mutex<Self>>, Box<dyn Error>> {
         // service and characteristic have the same uuid for the brio smart 2.0
-        let service_id =
+        let service_uuid =
+            Uuid::parse_str("B11B0001-BF9B-4A20-BA07-9218FEC577D7").unwrap();
+        let control_point_uuid =
+            Uuid::parse_str("B11B0002-BF9B-4A20-BA07-9218FEC577D7").unwrap();
+        let notification_uuid =
             Uuid::parse_str("B11B0002-BF9B-4A20-BA07-9218FEC577D7").unwrap();
 
-        //println!("Scanning for devices with service ID: {service_id}");
-        central.start_scan(ScanFilter::default()).await.unwrap();
+        println!("Scanning for devices with service UUID: {service_uuid}");
+        central
+            .start_scan(ScanFilter {
+                services: vec![service_uuid],
+            })
+            .await
+            .unwrap();
 
-        // Wait a bit to collect some devices
+        // Wait a bit to collect some peripherals.
         sleep(Duration::from_secs(2)).await;
 
-        let timeout = Duration::from_secs(30);
-        let start = std::time::Instant::now();
+        let peripheral;
 
-        let mut device = None;
-
-        while start.elapsed() < timeout {
-            if let Some(d) = find_device(central).await {
-                device = Some(d);
+        loop {
+            if let Some(p) = find_peripheral(central).await {
+                peripheral = p;
                 break;
             }
             sleep(Duration::from_millis(500)).await;
         }
 
-        if device.is_none() {
-            return Ok(None);
+        central.stop_scan().await?;
+        peripheral.connect().await?;
+        peripheral.discover_services().await?;
+
+        let mut cmd_char: Option<Characteristic> = None;
+
+        for char in peripheral.characteristics() {
+            if char.uuid == control_point_uuid {
+                cmd_char = Some(char);
+            } else if char.uuid == notification_uuid {
+                assert!(
+                    char.properties.contains(CharPropFlags::NOTIFY),
+                    "Unexpected non-notify characteristic"
+                );
+                peripheral.subscribe(&char).await?;
+            } else {
+                continue;
+            }
+            break;
         }
-        let device = device.unwrap();
-        device.connect().await?;
-        device.discover_services().await?;
 
-        let cmd_char = device
-            .characteristics()
-            .iter()
-            .find(|c| c.uuid == service_id)
-            .expect("Could not find command characteristic")
-            .to_owned();
+        let ret = Arc::new(Mutex::new(Self {
+            peripheral,
+            cmd_char: cmd_char.expect("Could not find command characteristic"),
+        }));
 
-        Ok(Some(Self { device, cmd_char }))
+        task::spawn(notification_watcher(ret.clone()));
+
+        Ok(ret)
     }
 
     pub async fn is_connected(&self) -> Result<bool, btleplug::Error> {
-        self.device.is_connected().await
+        self.peripheral.is_connected().await
     }
 
     async fn write_command(
@@ -120,15 +180,12 @@ impl BrioSmartTech {
     ) -> Result<(), Box<dyn Error>> {
         // Insert first a byte indicating the number of bytes the payload has.
         // This byte enters in the computation of the checksum.
-        let mut data = vec![payload.len().try_into().unwrap()];
+        let mut data = vec![0xaa, payload.len().try_into().unwrap()];
+        let checksum = compute_checksum(&payload);
         data.extend(payload);
-        let sum: u16 = data.iter().map(|x| u16::from(*x)).sum();
-        // Insert the byte indicating the start of the data.
-        data.insert(0, 0xAA);
-        // Append the checksum.
-        data.push(((0x100 - (sum & 0xFF)) & 0xFF) as u8);
+        data.push(checksum);
 
-        self.device
+        self.peripheral
             .write(&self.cmd_char, &data, WriteType::WithoutResponse)
             .await?;
         Ok(())
