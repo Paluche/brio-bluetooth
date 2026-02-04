@@ -109,6 +109,10 @@ impl BrioSmartTech {
         Ok(Some(Self { device, cmd_char }))
     }
 
+    pub async fn is_connected(&self) -> Result<bool, btleplug::Error> {
+        self.device.is_connected().await
+    }
+
     async fn write_command(
         &self,
         mut data: Vec<u8>,
