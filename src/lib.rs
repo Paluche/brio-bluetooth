@@ -1,8 +1,9 @@
+use std::error::Error;
+
 use btleplug::{
     api::{Central, Characteristic, Peripheral as _, ScanFilter, WriteType},
     platform::{Adapter, Peripheral},
 };
-use std::error::Error;
 use strum::EnumIter;
 use tokio::time::{Duration, sleep};
 use uuid::Uuid;
@@ -115,10 +116,16 @@ impl BrioSmartTech {
 
     async fn write_command(
         &self,
-        mut data: Vec<u8>,
+        payload: Vec<u8>,
     ) -> Result<(), Box<dyn Error>> {
+        // Insert first a byte indicating the number of bytes the payload has.
+        // This byte enters in the computation of the checksum.
+        let mut data = vec![payload.len().try_into().unwrap()];
+        data.extend(payload);
         let sum: u16 = data.iter().map(|x| u16::from(*x)).sum();
+        // Insert the byte indicating the start of the data.
         data.insert(0, 0xAA);
+        // Append the checksum.
         data.push(((0x100 - (sum & 0xFF)) & 0xFF) as u8);
 
         self.device
@@ -128,7 +135,7 @@ impl BrioSmartTech {
     }
 
     pub async fn set_speed(&self, speed: u8) -> Result<(), Box<dyn Error>> {
-        self.write_command(vec![0x02, 0x01, speed]).await
+        self.write_command(vec![0x01, speed]).await
     }
 
     pub async fn forward(&self, speed: u8) -> Result<(), Box<dyn Error>> {
@@ -151,11 +158,7 @@ impl BrioSmartTech {
         intensity: u8,
     ) -> Result<(), Box<dyn Error>> {
         assert!(intensity <= 16);
-        self.write_command(vec![
-            0x02,
-            0x02,
-            color.get_command_value(intensity),
-        ])
-        .await
+        self.write_command(vec![0x02, color.get_command_value(intensity)])
+            .await
     }
 }
