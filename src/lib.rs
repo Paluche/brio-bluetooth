@@ -132,6 +132,17 @@ fn compute_checksum(payload: &[u8]) -> u8 {
     ((0x100 - (sum & 0xFF)) & 0xFF) as u8
 }
 
+fn command_data(payload: Vec<u8>) -> Vec<u8> {
+    // Insert first a byte indicating the number of bytes the payload has.
+    // This byte enters in the computation of the checksum.
+    let mut data = vec![0xaa, payload.len().try_into().unwrap()];
+    let checksum = compute_checksum(&payload);
+    data.extend(payload);
+    data.push(checksum);
+
+    data
+}
+
 async fn notification_watcher(brio_smart_tech: Arc<Mutex<BrioSmartTech>>) {
     // Print the first 4 notifications received.
     let mut notification_stream = brio_smart_tech
@@ -230,15 +241,12 @@ impl BrioSmartTech {
         &self,
         payload: Vec<u8>,
     ) -> Result<(), Box<dyn Error>> {
-        // Insert first a byte indicating the number of bytes the payload has.
-        // This byte enters in the computation of the checksum.
-        let mut data = vec![0xaa, payload.len().try_into().unwrap()];
-        let checksum = compute_checksum(&payload);
-        data.extend(payload);
-        data.push(checksum);
-
         self.peripheral
-            .write(&self.cmd_char, &data, WriteType::WithoutResponse)
+            .write(
+                &self.cmd_char,
+                &command_data(payload),
+                WriteType::WithoutResponse,
+            )
             .await?;
         Ok(())
     }
@@ -276,5 +284,27 @@ impl BrioSmartTech {
     ) -> Result<(), Box<dyn Error>> {
         self.write_command(vec![0x56, 0xaa, sound_theme.get_command_value()])
             .await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_chksum() {
+        assert_eq!(
+            command_data(vec![0x02, Color::Blue.get_command_value(0xa)]),
+            vec![0xAA, 0x02, 0x02, 0x6A, 0x92]
+        );
+        assert_eq!(
+            command_data(vec![0x02, Color::LightBlue.get_command_value(0xa)]),
+            vec![0xAA, 0x02, 0x02, 0x7A, 0x82]
+        );
+
+        assert_eq!(
+            command_data(vec![0x01, 0x00]),
+            vec![0xAA, 0x02, 0x01, 0x00, 0xfd]
+        );
     }
 }
