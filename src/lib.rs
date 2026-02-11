@@ -34,6 +34,7 @@ pub enum Color {
 
 impl Color {
     fn get_command_value(&self, intensity: u8) -> u8 {
+        assert!(intensity <= 16);
         (match self {
             Self::Off => 0,
             Self::Yellow => 1,
@@ -248,7 +249,6 @@ impl BrioSmartTech {
         color: Color,
         intensity: u8,
     ) -> Result<(), Box<dyn Error>> {
-        assert!(intensity <= 16);
         self.write_command(vec![0x02, color.get_command_value(intensity)])
             .await
     }
