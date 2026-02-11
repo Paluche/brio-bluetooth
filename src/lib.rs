@@ -52,6 +52,23 @@ impl Color {
             * 16
             + intensity
     }
+
+    pub fn next(&self) -> Self {
+        match self {
+            Self::Off => Self::Yellow,
+            Self::Yellow => Self::Orange,
+            Self::Orange => Self::Red,
+            Self::Red => Self::Pink,
+            Self::Pink => Self::Purple,
+            Self::Purple => Self::Blue,
+            Self::Blue => Self::LightBlue,
+            Self::LightBlue => Self::Cyan,
+            Self::Cyan => Self::Green,
+            Self::Green => Self::White,
+            Self::White => Self::RedBackward,
+            Self::RedBackward => Self::Off,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, EnumIter)]
