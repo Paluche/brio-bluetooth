@@ -209,15 +209,18 @@ impl BrioSmartTech {
 
         let mut cmd_char: Option<Characteristic> = None;
 
-        for char in peripheral.characteristics() {
-            if char.uuid == control_point_uuid {
-                cmd_char = Some(char);
-            } else if char.uuid == notification_uuid {
+        for characteristic in peripheral.characteristics() {
+            println!("Characteristic {}", characteristic.uuid);
+            if characteristic.uuid == control_point_uuid {
+                println!("   Control point");
+                cmd_char = Some(characteristic);
+            } else if characteristic.uuid == notification_uuid {
+                println!("   Notification");
                 assert!(
-                    char.properties.contains(CharPropFlags::NOTIFY),
+                    characteristic.properties.contains(CharPropFlags::NOTIFY),
                     "Unexpected non-notify characteristic"
                 );
-                peripheral.subscribe(&char).await?;
+                peripheral.subscribe(&characteristic).await?;
             } else {
                 continue;
             }
