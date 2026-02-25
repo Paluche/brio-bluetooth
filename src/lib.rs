@@ -168,18 +168,19 @@ async fn notification_watcher(brio_smart_tech: Arc<Mutex<BrioSmartTech>>) {
     }
 }
 
+fn brio_uuid(id: u32) -> Uuid {
+    Uuid::parse_str(&format!("b11b{id:04}-bf9b-4a20-ba07-9218fec577d7")).unwrap()
+}
+
 impl BrioSmartTech {
     /// Instantiate the communication with a Brio Smart Tech device.
     pub async fn new(
         central: &Adapter,
     ) -> Result<Arc<Mutex<Self>>, Box<dyn Error>> {
         // service and characteristic have the same uuid for the brio smart 2.0
-        let service_uuid =
-            Uuid::parse_str("B11B0001-BF9B-4A20-BA07-9218FEC577D7").unwrap();
-        let control_point_uuid =
-            Uuid::parse_str("B11B0002-BF9B-4A20-BA07-9218FEC577D7").unwrap();
-        let notification_uuid =
-            Uuid::parse_str("B11B0002-BF9B-4A20-BA07-9218FEC577D7").unwrap();
+        let service_uuid = brio_uuid(1);
+        let control_point_uuid = brio_uuid(2);
+        let notification_uuid = brio_uuid(3);
 
         println!("Scanning for devices with service UUID: {service_uuid}");
         central
@@ -220,7 +221,6 @@ impl BrioSmartTech {
             } else {
                 continue;
             }
-            break;
         }
 
         let ret = Arc::new(Mutex::new(Self {
