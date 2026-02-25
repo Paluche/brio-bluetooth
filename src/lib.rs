@@ -34,7 +34,7 @@ pub enum Color {
 
 impl Color {
     fn get_command_value(&self, intensity: u8) -> u8 {
-        assert!(intensity <= 16);
+        assert!(intensity < 16);
         (match self {
             Self::Off => 0,
             Self::Yellow => 1,
@@ -294,17 +294,17 @@ mod tests {
     #[test]
     fn test_chksum() {
         assert_eq!(
-            command_data(vec![0x02, Color::Blue.get_command_value(0xa)]),
-            vec![0xAA, 0x02, 0x02, 0x6A, 0x92]
+            command_data(vec![0x02, Color::Blue.get_command_value(15)]),
+            vec![0xaa, 0x02, 0x02, 0x6f, 0x8d]
         );
         assert_eq!(
-            command_data(vec![0x02, Color::LightBlue.get_command_value(0xa)]),
-            vec![0xAA, 0x02, 0x02, 0x7A, 0x82]
+            command_data(vec![0x02, Color::LightBlue.get_command_value(15)]),
+            vec![0xaa, 0x02, 0x02, 0x7f, 0x7d]
         );
 
         assert_eq!(
             command_data(vec![0x01, 0x00]),
-            vec![0xAA, 0x02, 0x01, 0x00, 0xfd]
+            vec![0xaa, 0x02, 0x01, 0x00, 0xfd]
         );
     }
 }
